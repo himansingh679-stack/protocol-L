@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocol: LAIBA 🌙</title>
+    <style>
+        :root {
+            --accent: #c4b5fd;
+            --bg: #020617;
+            --glass: rgba(255, 255, 255, 0.03);
+            --border: rgba(196, 181, 253, 0.2);
+            --text: #f8fafc;
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: 'Inter', sans-serif; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; perspective: 1000px;
+        }
+
+        canvas#bgCanvas { position: fixed; top: 0; left: 0; z-index: -1; }
+
+        #hud {
+            position: fixed; top: 20px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between; font-family: monospace;
+            font-size: 0.6rem; color: var(--accent); opacity: 0.6; z-index: 100;
+        }
+
+        .screen {
+            display: none; opacity: 0; transform: translateZ(-50px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 92%; max-width: 420px;
+        }
+
+        .show { display: block; opacity: 1; transform: translateZ(0); }
+
+        .aura-card {
+            background: var(--glass); backdrop-filter: blur(40px);
+            border: 1px solid var(--border); padding: 40px 25px; border-radius: 40px;
+            text-align: center; box-shadow: 0 0 50px rgba(0,0,0,0.5); position: relative;
+        }
+
+        h2 { font-weight: 200; letter-spacing: 5px; color: var(--accent); font-size: 0.7rem; text-transform: uppercase; margin-bottom: 25px; }
+
+        button {
+            background: rgba(196, 181, 253, 0.1); color: var(--accent);
+            border: 1px solid var(--border); padding: 18px; border-radius: 20px;
+            font-weight: 600; cursor: pointer; width: 100%; transition: 0.4s;
+            text-transform: uppercase; letter-spacing: 2px; font-size: 0.75rem; margin-top: 10px;
+        }
+        button:hover { background: var(--accent); color: var(--bg); transform: scale(1.02); }
+
+        .grid { display: grid; gap: 10px; margin-top: 20px; }
+        .cell { aspect-ratio: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
+        
+        #invadersContainer { width: 100%; height: 240px; background: rgba(0,0,0,0.4); border-radius: 25px; position: relative; overflow: hidden; border: 1px solid var(--border); margin: 15px 0; }
+        #player { position: absolute; bottom: 12px; width: 35px; height: 10px; background: var(--accent); border-radius: 10px; box-shadow: 0 0 15px var(--accent); }
+        .invader { position: absolute; font-size: 1.4rem; }
+        .bullet { position: absolute; width: 3px; height: 12px; background: #fff; border-radius: 5px; }
+
+        #synapseArea { height: 180px; position: relative; margin: 20px 0; display: flex; justify-content: space-around; align-items: center; }
+        .node { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; cursor: pointer; transition: 0.3s; }
+        .node.active { background: var(--accent); color: var(--bg); box-shadow: 0 0 20px var(--accent); }
+
+        .rank-item { position: absolute; font-size: 2rem; cursor: pointer; transition: 0.3s; filter: drop-shadow(0 0 10px var(--accent)); }
+
+        .progress-container { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.4s; }
+
+        .scanline { width: 100%; height: 2px; background: var(--accent); opacity: 0.2; position: absolute; top: 0; left: 0; animation: scan 3s linear infinite; pointer-events: none; }
+        @keyframes scan { from { top: 0; } to { top: 100%; } }
+
+        @keyframes glitch { 0% { transform: translate(0); } 20% { transform: translate(-2px, 2px); } 40% { transform: translate(-2px, -2px); } 60% { transform: translate(2px, 2px); } 80% { transform: translate(2px, -2px); } 100% { transform: translate(0); } }
+        .glitch-effect { animation: glitch 0.3s ease; }
+    </style>
+</head>
+<body>
+
+<audio id="bgMusic" loop preload="auto">
+    <source src="bg.mp3" type="audio/mpeg">
+</audio>
+
+<div id="hud">
+    <div>BPM: <span id="bpm">72</span></div>
+    <div>SXM_OS v5.0</div>
+    <div id="audio-status">AUDIO: STANDBY</div>
+</div>
+
+<canvas id="bgCanvas"></canvas>
+
+<div id="lock" class="screen show">
+    <div class="aura-card">
+        <div class="scanline"></div>
+        <h2>🔒 Encrypted Access</h2>
+        <input type="password" id="pass" placeholder="DDMMYYYY" style="width:100%; padding:18px; background:rgba(0,0,0,0.3); border:1px solid var(--border); color:white; border-radius:20px; text-align:center; outline:none; margin-bottom: 15px; letter-spacing: 5px;">
+        <button onclick="unlock()">Initialize Sync</button>
+    </div>
+</div>
+
+<div id="intro" class="screen">
+    <div class="aura-card">
+        <h2>Auth: Confirmed</h2>
+        <p style="font-size: 1rem; line-height: 1.6;">Welcome, <span style="color:var(--accent);">Laiba</span>. 🌙<br>SXM has requested a full neural recalibration for you.</p>
+        <button onclick="show('puzzle')">Start Module 01</button>
+    </div>
+</div>
+
+<div id="puzzle" class="screen">
+    <div class="aura-card">
+        <h2>01: Cognitive Focus</h2>
+        <div class="grid" style="grid-template-columns: repeat(4, 1fr);" id="grid"></div>
+        <div class="progress-container"><div id="memProgress" class="progress-fill"></div></div>
+    </div>
+</div>
+
+<div id="invadersScreen" class="screen">
+    <div class="aura-card">
+        <h2 id="invLvlTxt">02: Stress Defense</h2>
+        <div id="invadersContainer" onmousemove="moveShip(event)" ontouchmove="moveShip(event)" onclick="shoot()">
+            <div id="player"></div>
+        </div>
+        <p id="invScore" style="font-size: 0.7rem; color: var(--accent);">STRESS CLEARANCE: 0%</p>
+    </div>
+</div>
+
+<div id="synapseScreen" class="screen">
+    <div class="aura-card">
+        <h2>03: Synapse Bridge</h2>
+        <p style="font-size: 0.75rem; opacity: 0.6;">Connect neurons in order: 1-2-3-4</p>
+        <div id="synapseArea">
+            <div class="node" id="n1" onclick="hitNode(1)">1</div>
+            <div class="node" id="n2" onclick="hitNode(2)">2</div>
+            <div class="node" id="n3" onclick="hitNode(3)">3</div>
+            <div class="node" id="n4" onclick="hitNode(4)">4</div>
+        </div>
+        <p id="synMsg" style="font-size: 0.8rem; color: var(--accent);">Stabilizing Link...</p>
+    </div>
+</div>
+
+<div id="rankBoost" class="screen">
+    <div class="aura-card">
+        <h2>04: Rank Optimizer</h2>
+        <p style="font-size: 0.75rem; opacity: 0.6;">Tap medical symbols to optimize AIR 🩺</p>
+        <div id="rankArea" style="height:250px; position:relative; overflow:hidden; background:rgba(0,0,0,0.2); border-radius:25px; margin:15px 0;"></div>
+        <p id="rankTxt" style="font-size: 0.9rem; color: var(--accent);">CURRENT RANK: #999,999</p>
+    </div>
+</div>
+
+<div id="riddleScreen" class="screen">
+    <div class="aura-card">
+        <h2>05: Logic Gate</h2>
+        <p id="riddleText" style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px; height: 80px; display:flex; align-items:center; justify-content:center;"></p>
+        <div id="riddleOptions" style="display:flex; flex-direction:column;"></div>
+    </div>
+</div>
+
+<div id="calibration" class="screen">
+    <div class="aura-card">
+        <div class="scanline"></div>
+        <h2>Final Calibration</h2>
+        <p style="font-size: 0.85rem; margin: 30px 0;">Injecting Motivation Packets...<br>Compiling SXM's data...</p>
+        <div class="progress-container"><div id="finalBar" class="progress-fill" style="transition: width 3.5s linear;"></div></div>
+    </div>
+</div>
+
+<div id="msgScreen" class="screen">
+    <div class="aura-card">
+        <p id="midMsg" style="font-size: 1.05rem; min-height: 150px; display:flex; align-items:center; justify-content:center; line-height: 1.6;"></p>
+        <button onclick="nextMsg()" id="msgBtn">Next Packet</button>
+    </div>
+</div>
+
+<div id="personalMsg" class="screen">
+    <div class="aura-card">
+        <h2>Final Memo</h2>
+        <p style="font-size: 1.1rem; line-height: 1.8; color: var(--accent);">
+            It is truly hard for me to separate from you forever...<br><br>
+            Let's be good friends with boundaries for each other from now on.
+        </p>
+        <button onclick="show('end')">Accept Protocol</button>
+    </div>
+</div>
+
+<div id="end" class="screen">
+    <div class="aura-card">
+        <div style="font-size: 3rem; margin-bottom: 20px;">🌙</div>
+        <p style="line-height: 1.7; margin-bottom: 20px;">Believe in yourself, Laiba. You're going to be a brilliant doctor. ❤️</p>
+        <p style="font-size: 0.9rem; color: var(--accent); padding: 15px; border: 1px dashed var(--border); border-radius: 15px;">
+            If you want to continue being my friend, send a <b>monkey emoji 🐒</b> to me.
+        </p>
+        <button onclick="location.reload()">System Sleep</button>
+    </div>
+</div>
+
+<script>
+    const passcode = "21052008";
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    const bgMusic = document.getElementById('bgMusic');
+    let stars = [];
+
+    setInterval(() => { document.getElementById('bpm').innerText = Math.floor(Math.random() * (78 - 68) + 68); }, 2000);
+
+    function initBg() {
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        stars = []; for(let i=0; i<80; i++) stars.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height, r:Math.random()*1.5, s:Math.random()*0.3});
+    }
+    function drawBg() {
+        ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle="white";
+        stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); s.y -= s.s; if(s.y<0) s.y=canvas.height; });
+        requestAnimationFrame(drawBg);
+    }
+    initBg(); drawBg();
+
+    function show(id) {
+        document.body.classList.add('glitch-effect');
+        setTimeout(() => document.body.classList.remove('glitch-effect'), 300);
+        document.querySelectorAll(".screen").forEach(s => s.classList.remove("show"));
+        setTimeout(() => {
+            document.getElementById(id).classList.add("show");
+            if(id === 'puzzle') initMemory();
+            if(id === 'invadersScreen') initInvaders(1);
+            if(id === 'rankBoost') initRankBoost();
+            if(id === 'riddleScreen') initRiddles();
+            if(id === 'calibration') { setTimeout(()=>document.getElementById('finalBar').style.width='100%', 100); setTimeout(()=>show('msgScreen'), 3800); }
+            if(id === 'msgScreen') startMsgs();
+        }, 150);
+    }
+
+    function unlock() {
+        if(document.getElementById("pass").value === passcode) {
+            // Wake up and play the music
+            bgMusic.play().then(() => {
+                document.getElementById('audio-status').innerText = "AUDIO: LIVE";
+            }).catch(e => {
+                console.log("Audio waiting for user...");
+            });
+            show("intro");
+        }
+        else alert("Access Denied.");
+    }
+
+    // Module 01 Logic
+    function initMemory() {
+        const icons = ["🌙","🩺","🧠","💊","✨","❤️","🧬","🧪"];
+        const cards = [...icons, ...icons].sort(() => Math.random() - 0.5);
+        const grid = document.getElementById("grid"); grid.innerHTML = "";
+        let first = null, matched = 0;
+        cards.forEach(e => {
+            const c = document.createElement("div"); c.className = "cell"; c.innerText = "??";
+            c.onclick = () => {
+                if(c.innerText !== "??" || first === c) return;
+                c.innerText = e;
+                if(!first) first = c;
+                else {
+                    if(first.innerText === c.innerText) { matched += 2; first = null; document.getElementById("memProgress").style.width=(matched/16*100)+"%"; if(matched === 16) setTimeout(()=>show('invadersScreen'), 800); }
+                    else { setTimeout(() => { first.innerText = "??"; c.innerText = "??"; first = null; }, 400); }
+                }
+            }; grid.appendChild(c);
+        });
+    }
+
+    // Module 02 Logic
+    let alienSwarm = [], alienDir = 1, invLoop, currentLvl = 1;
+    function moveShip(e) {
+        const container = document.getElementById("invadersContainer");
+        const x = (e.touches ? e.touches[0].clientX : e.clientX) - container.getBoundingClientRect().left;
+        document.getElementById("player").style.left = Math.max(15, Math.min(x, container.offsetWidth - 20)) + "px";
+    }
+    function initInvaders(lvl) {
+        currentLvl = lvl; document.getElementById("invLvlTxt").innerText = `02: Stress Defense Lvl ${lvl}`;
+        alienSwarm = []; const container = document.getElementById("invadersContainer");
+        container.querySelectorAll('.invader, .bullet').forEach(el => el.remove());
+        const rows = 1+lvl, cols = 4;
+        for(let r=0; r<rows; r++) {
+            for(let c=0; c<cols; c++) {
+                const a = document.createElement("div"); a.className = "invader"; a.innerText = "👾";
+                let x = c*65+50, y = r*40+30; a.style.left = x+"px"; a.style.top = y+"px";
+                container.appendChild(a); alienSwarm.push({el:a, x, y});
+            }
+        }
+        clearInterval(invLoop); invLoop = setInterval(updateAliens, 60 - (lvl*10));
+    }
+    function updateAliens() {
+        const container = document.getElementById("invadersContainer"); let edge = false;
+        alienSwarm.forEach(a => { a.x += alienDir*currentLvl; a.el.style.left = a.x+"px"; if(a.x>container.offsetWidth-35 || a.x<15) edge = true; });
+        if(edge) { alienDir*=-1; alienSwarm.forEach(a => { a.y+=15; a.el.style.top=a.y+"px"; }); }
+    }
+    function shoot() {
+        const container = document.getElementById("invadersContainer");
+        const b = document.createElement("div"); b.className="bullet"; b.style.left = document.getElementById("player").offsetLeft+"px";
+        let bY = 210; b.style.top = bY+"px"; container.appendChild(b);
+        let bInt = setInterval(() => {
+            bY -= 8; b.style.top = bY+"px";
+            alienSwarm.forEach((a, i) => {
+                const bR = b.getBoundingClientRect(), aR = a.el.getBoundingClientRect();
+                if(bR.top < aR.bottom && bR.left > aR.left && bR.left < aR.right) {
+                    a.el.innerText="💥"; setTimeout(()=>a.el.remove(), 100); alienSwarm.splice(i,1); b.remove(); clearInterval(bInt);
+                    document.getElementById("invScore").innerText = `CLEARED: ${Math.round((1 - alienSwarm.length/(currentLvl*4+4))*100)}%`;
+                    if(alienSwarm.length===0) { clearInterval(invLoop); if(currentLvl<3) setTimeout(()=>initInvaders(currentLvl+1), 800); else show('synapseScreen'); }
+                }
+            }); if(bY < -20) { b.remove(); clearInterval(bInt); }
+        }, 20);
+    }
+
+    // Module 03 Logic
+    let nextNode = 1;
+    function hitNode(n) {
+        if(n === nextNode) {
+            document.getElementById('n'+n).classList.add('active');
+            nextNode++;
+            if(nextNode > 4) {
+                document.getElementById('synMsg').innerText = "LINK SECURED";
+                document.getElementById('stress').innerText = "LOW";
+                setTimeout(() => show('rankBoost'), 1000);
+            }
+        } else {
+            document.querySelectorAll('.node').forEach(el => el.classList.remove('active'));
+            nextNode = 1;
+            document.getElementById('synMsg').innerText = "LINK FAILED. RETRY.";
+        }
+    }
+
+    // Module 04 Logic (RANK OPTIMIZER)
+    function initRankBoost() {
+        let items = 0; const area = document.getElementById("rankArea");
+        area.innerHTML = "";
+        const rankTimer = setInterval(() => {
+            if(items >= 8) { clearInterval(rankTimer); show('riddleScreen'); return; }
+            const s = document.createElement("div"); s.className = "rank-item"; s.innerText = "🩺";
+            s.style.left = Math.random()*80+10+"%"; s.style.top = Math.random()*80+10+"%";
+            s.onclick = () => { items++; s.style.transform="scale(0)"; document.getElementById("rankTxt").innerText = `CURRENT RANK: #000,0${8-items}`; setTimeout(()=>s.remove(), 300); };
+            area.appendChild(s);
+        }, 900);
+    }
+
+    // Module 05 Logic
+    const riddles = [
+        { q: "What is the only organ that can regenerate itself?", a: ["Heart", "Liver", "Brain"], c: 1 },
+        { q: "Which part of the brain controls balance and coordination?", a: ["Cerebrum", "Brainstem", "Cerebellum"], c: 2 },
+        { q: "What is the powerhouse of the cell?", a: ["Mitochondria", "Nucleus", "Ribosome"], c: 0 }
+    ];
+    let ridx = 0;
+    function initRiddles() {
+        const current = riddles[ridx];
+        document.getElementById("riddleText").innerText = current.q;
+        const optBox = document.getElementById("riddleOptions");
+        optBox.innerHTML = "";
+        current.a.forEach((opt, i) => {
+            const b = document.createElement("button"); b.innerText = opt;
+            b.onclick = () => {
+                if(i === current.c) { ridx++; if(ridx < riddles.length) initRiddles(); else show('calibration'); }
+                else { b.style.borderColor = "red"; setTimeout(()=>b.style.borderColor="var(--border)", 500); }
+            };
+            optBox.appendChild(b);
+        });
+    }
+
+    const msgs = [
+        "Diagnostics Complete. 🌙",
+        "Laiba, remember why you started this journey. 🩺",
+        "Your potential is higher than any AIR. 🧠",
+        "Trust the process. Trust SXM's words. ❤️"
+    ];
+    let mIdx = 0;
+    function startMsgs() { document.getElementById("midMsg").innerText = msgs[0]; }
+    function nextMsg() {
+        mIdx++;
+        if(mIdx < msgs.length) document.getElementById("midMsg").innerText = msgs[mIdx];
+        else show('personalMsg');
+    }
+</script>
+</body>
+</html>
